@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Launchmen Task Manager</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f6f8;
+    color: #222;
+    padding: 32px 16px;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 24px;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e4e6eb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card h2 {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  input, select, button {
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #d0d3d9;
+    font-family: inherit;
+  }
+
+  input { flex: 1; min-width: 200px; }
+  select { background: #fff; cursor: pointer; }
+
+  button {
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: #333; }
+  button.secondary { background: #fff; color: #333; border: 1px solid #d0d3d9; }
+  button.secondary:hover { background: #f0f1f3; }
+  button.danger { background: #d93838; }
+  button.danger:hover { background: #b82d2d; }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .filter-row label { font-size: 14px; color: #555; }
+
+  .task {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid #e4e6eb;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: #fff;
+  }
+  .task-title {
+    flex: 1;
+    font-size: 14px;
+  }
+  .task-id {
+    font-size: 11px;
+    color: #999;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge.pending     { background: #fff3cd; color: #856404; }
+  .badge.in-progress { background: #d1ecf1; color: #0c5460; }
+  .badge.review      { background: #e2d9f3; color: #4a2785; }
+  .badge.blocked     { background: #f8d7da; color: #721c24; }
+  .badge.done        { background: #d4edda; color: #155724; }
+
+  .empty, .loading {
+    text-align: center;
+    color: #888;
+    padding: 32px 16px;
+    font-size: 14px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a1a;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #d93838; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Launchmen Task Manager</h1>
+    <p class="subtitle">Connected to <code>http://localhost:3000</code></p>
+
+    <div class="card">
+      <h2>Add task</h2>
+      <div class="row">
+        <input id="new-title" type="text" placeholder="Task title..." />
+        <select id="new-status">
+          <option value="pending">pending</option>
+          <option value="in-progress">in-progress</option>
+          <option value="review">review</option>
+          <option value="blocked">blocked</option>
+          <option value="done">done</option>
+        </select>
+        <button id="add-btn">Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="filter-row">
+        <label for="filter">Filter:</label>
+        <select id="filter">
+          <option value="">All statuses</option>
+          <option value="pending">pending</option>
+          <option value="in-progress">in-progress</option>
+          <option value="review">review</option>
+          <option value="blocked">blocked</option>
+          <option value="done">done</option>
+        </select>
+        <button class="secondary" id="refresh-btn">Refresh</button>
+      </div>
+      <div id="tasks"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+  const API = 'http://localhost:3000';
+  const STATUSES = ['pending', 'in-progress', 'review', 'blocked', 'done'];
+
+  const $ = (id) => document.getElementById(id);
+
+  function toast(msg, isError = false) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isError ? ' error' : '');
+    setTimeout(() => t.className = 'toast', 2000);
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  async function loadTasks() {
+    const status = $('filter').value;
+    const url = status ? `${API}/tasks?status=${encodeURIComponent(status)}` : `${API}/tasks`;
+    const container = $('tasks');
+    container.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      render(data.tasks || []);
+    } catch (err) {
+      container.innerHTML = '<div class="empty">Could not reach API. Is the server running?</div>';
+    }
+  }
+
+  function render(tasks) {
+    const container = $('tasks');
+    if (!tasks.length) {
+      container.innerHTML = '<div class="empty">No tasks to show.</div>';
+      return;
+    }
+    container.innerHTML = tasks.map(t => {
+      const statusClass = STATUSES.includes(t.status) ? t.status : 'pending';
+      const options = STATUSES.map(s =>
+        `<option value="${s}" ${s === t.status ? 'selected' : ''}>${s}</option>`
+      ).join('');
+      return `
+        <div class="task" data-id="${t.id}">
+          <div class="task-title">
+            ${escapeHtml(t.title)}
+            <span class="task-id">id: ${t.id}</span>
+          </div>
+          <span class="badge ${statusClass}">${escapeHtml(t.status)}</span>
+          <select class="status-select">${options}</select>
+          <button class="danger delete-btn">Delete</button>
+        </div>
+      `;
+    }).join('');
+
+    // Attach listeners
+    container.querySelectorAll('.task').forEach(el => {
+      const id = el.dataset.id;
+      el.querySelector('.status-select').addEventListener('change', e => updateStatus(id, e.target.value));
+      el.querySelector('.delete-btn').addEventListener('click', () => deleteTask(id));
+    });
+  }
+
+  async function addTask() {
+    const title = $('new-title').value.trim();
+    const status = $('new-status').value;
+    if (!title) {
+      toast('Title is required', true);
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, status }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.message || 'Failed to create task', true);
+        return;
+      }
+      $('new-title').value = '';
+      toast('Task added');
+      loadTasks();
+    } catch {
+      toast('Network error', true);
+    }
+  }
+
+  async function updateStatus(id, status) {
+    try {
+      const res = await fetch(`${API}/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.message || 'Failed to update', true);
+        return;
+      }
+      toast('Status updated');
+      loadTasks();
+    } catch {
+      toast('Network error', true);
+    }
+  }
+
+  async function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    try {
+      const res = await fetch(`${API}/tasks/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.message || 'Failed to delete', true);
+        return;
+      }
+      toast('Task deleted');
+      loadTasks();
+    } catch {
+      toast('Network error', true);
+    }
+  }
+
+  // Wire up
+  $('add-btn').addEventListener('click', addTask);
+  $('new-title').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+  $('filter').addEventListener('change', loadTasks);
+  $('refresh-btn').addEventListener('click', loadTasks);
+
+  loadTasks();
+</script>
+</body>
+</html>

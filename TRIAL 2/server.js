@@ -77,3 +77,33 @@ app.delete('/tasks/:id', (req, res) => {
 app.listen(3000, () => {
   console.log('Launchmen Task API running on http://localhost:3000');
 });
+
+
+// ## ANSWER
+// 1. Issues:
+//   a. N+1 Queries: The first query fetches 50 posts in one round trip. The loop then runs another 50 queries — one per post — just to look up the author. That's 51 round trips to the database to render a single page.
+//   Fix: collapse it into a single query with a JOIN.
+
+// ```typescript
+// const rows = await db.query(
+//   `SELECT
+//      p.id, p.author_id, p.title, p.created_at,
+//      a.id   AS author_id_full,
+//      a.name AS author_name,
+//      a.email AS author_email
+//    FROM posts p
+//    JOIN authors a ON a.id = p.author_id
+//    ORDER BY p.created_at DESC
+//    LIMIT 50`
+// );
+// ```
+// 2. SQL injection at:
+// ```typescript
+// `SELECT ... WHERE id = ${post.author_id}`
+// ```
+// Fix: Use parameterized querry instead:
+// ```typescript
+// db.query(`SELECT id, name, email FROM authors WHERE id = $1`, [post.author_id]);
+// ```
+
+// 3. Add index to created_at field of post table. This prevent the database to scan full page when query

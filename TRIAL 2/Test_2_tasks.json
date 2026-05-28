@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1779900000001,
+    "title": "Set up project repository",
+    "status": "done"
+  },
+  {
+    "id": 1779900000002,
+    "title": "Design database schema",
+    "status": "done"
+  },
+  {
+    "id": 1779900000003,
+    "title": "Build Tasker App backend — Phase 2",
+    "status": "in-progress"
+  },
+  {
+    "id": 1779900000004,
+    "title": "Landing page for Silver Surge client",
+    "status": "review"
+  },
+  {
+    "id": 1779900000005,
+    "title": "AI Avatar Pipeline QA",
+    "status": "blocked"
+  },
+  {
+    "id": 1779900000006,
+    "title": "Write API documentation",
+    "status": "pending"
+  },
+  {
+    "id": 1779900000007,
+    "title": "Onboard new team member",
+    "status": "pending"
+  },
+  {
+    "id": 1779900000008,
+    "title": "Refactor authentication middleware",
+    "status": "in-progress"
+  }
+]
