@@ -24,6 +24,8 @@
       width: 100%;
       top: 0;
       z-index: 100;
+      /* Fixed height so we can offset the hero by the same amount */
+      height: 64px;
     }
 
     .navbar .logo {
@@ -39,12 +41,19 @@
       font-size: 14px;
     }
 
+    /*
+      BUG FIX: The navbar uses position: fixed, which removes it from the
+      normal document flow. The hero had margin-top: 0, so the navbar was
+      sitting on top of the hero content and overlapping it. Adding
+      padding-top equal to the navbar's height pushes all content below
+      the navbar so nothing is hidden behind it.
+    */
     .hero {
       background: linear-gradient(135deg, #1a1a2e, #16213e);
       color: white;
       text-align: center;
       padding: 80px 20px;
-      margin-top: 0;
+      margin-top: 64px;
     }
 
     .hero h1 {
@@ -59,14 +68,22 @@
       margin: 0 auto 32px;
     }
 
+    /*
+      BUG FIX: The button text color was #f4f6f9 — the same near-white shade
+      used as the page background. While it had some contrast against the
+      red button, using a clean #ffffff (white) makes the label clearly
+      readable and avoids any confusion with the background color.
+    */
     .btn-primary {
       background: #e94560;
-      color: #f4f6f9;
+      color: #ffffff;
       padding: 14px 32px;
       border: none;
       border-radius: 6px;
       font-size: 16px;
       cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
     }
 
     .section {
@@ -169,7 +186,13 @@
   <div class="hero">
     <h1>Build Smarter. Ship Faster.</h1>
     <p>Launchmen helps remote teams manage projects, track progress, and deliver results — powered by AI.</p>
-    <button class="btn-primary" onclick="handleCTA()">Get Started Free</button>
+    <!--
+      BUG FIX: The CTA was a <button> that triggered a JavaScript alert via
+      handleCTA(). The requirement is to navigate to the #sign-up anchor,
+      so it's now an <a> styled as a button with href="#sign-up". This is
+      also better for accessibility (semantic link for navigation).
+    -->
+    <a href="#sign-up" class="btn-primary">Get Started Free</a>
   </div>
 
   <div class="section">
@@ -197,32 +220,35 @@
     <h2 style="margin-bottom: 40px;">Team Performance</h2>
     <div class="stats-grid">
       <div class="stat-item">
-        <h3>94%</h3>
+        <h3 data-target="94" data-suffix="%">94%</h3>
         <p>On-Time Delivery</p>
       </div>
       <div class="stat-item">
-        <h3>12</h3>
+        <h3 data-target="12">12</h3>
         <p>Active Projects</p>
       </div>
       <div class="stat-item">
-        <h3>8</h3>
+        <h3 data-target="8">8</h3>
         <p>Team Members</p>
       </div>
       <div class="stat-item">
-        <h3>3</h3>
+        <h3 data-target="3">3</h3>
         <p>AI Tools in Use</p>
       </div>
     </div>
   </div>
 
   <script>
-    function handleCTA() {
-      alert("Welcome to Launchmen! Redirecting to signup...");
-    }
-
     document.addEventListener("DOMContentLoaded", function () {
       const cards = document.querySelectorAll(".card");
-      cards.froEach(function (card) {
+      /*
+        BUG FIX: The original code called cards.froEach(...) — a typo of
+        forEach. Because froEach doesn't exist on a NodeList, the script
+        threw a TypeError and aborted before the hover handlers (and the
+        counter animation below) ever ran. Fixing the spelling to forEach
+        restores both the card hover lift and the counter animation.
+      */
+      cards.forEach(function (card) {
         card.addEventListener("mouseenter", function () {
           card.style.transform = "translateY(-4px)";
           card.style.transition = "transform 0.2s ease";
@@ -234,19 +260,30 @@
 
       const statItems = document.querySelectorAll(".stat-item h3");
       statItems.forEach(function (el) {
-        const target = parseFloat(el.textContent);
+        /*
+          BUG FIX: The original code derived `target` from el.textContent
+          using parseFloat, then used Number.isInteger(target) to decide
+          whether to append "%". For "94%", parseFloat returned 94 — an
+          integer — so the "%" branch was never taken and the final value
+          rendered as "94" with no percent sign. Worse, the non-integer
+          branch used current.toFixed(0) + "%", which would have appended
+          "%" to EVERY stat (including 12, 8, 3) had the targets been
+          floats. We now read the target from data-target and the suffix
+          (if any) from data-suffix, so each stat keeps its correct unit.
+        */
+        const target = parseFloat(el.getAttribute("data-target"));
+        const suffix = el.getAttribute("data-suffix") || "";
         if (!isNaN(target)) {
           let current = 0;
           const step = target / 40;
+          el.textContent = "0" + suffix;
           const timer = setInterval(function () {
             current += step;
             if (current >= target) {
               current = target;
               clearInterval(timer);
             }
-            el.textContent = Number.isInteger(target)
-              ? Math.round(current)
-              : current.toFixed(0) + "%";
+            el.textContent = Math.round(current) + suffix;
           }, 30);
         }
       });
